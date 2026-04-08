@@ -2,36 +2,35 @@
 #include <stdlib.h>
 #include <string.h>
 
-void use_after_free() {
-  char *ptr = (char *)malloc(10); // allocate memory
-  if (ptr == NULL) {
-    printf("Memory allocation failed.\n");
-    return;
-  }
+/* use-after-free (reuse): sensitive data is written into a heap allocation,
+   which is then freed. a new allocation of the same size commonly receives the
+   same address from the allocator, and the old pointer still points there.
 
-  strcpy(ptr, "KillENGN"); // copy data into allocated memory
-  printf("Allocated memory contains: %s\n", ptr);
+   reading through the stale pointer returns the new object's data; writing
+   through it silently corrupts the new object. this variant focuses on showing
+   that the allocator reuses the freed address. */
 
-  free(ptr); // free the allocated memory
-  printf("Freed memory contains: %s\n",
-         ptr); // attempt to access freed memory (use after free)
+int main(void)
+{
+    char *ptr = malloc(32);
+    if (!ptr) return 1;
 
-  // allocate memory again and show that the same address may be reused
-  char *new_ptr = (char *)malloc(10);
-  if (new_ptr == NULL) {
-    printf("Memory allocation failed.\n");
-    return;
-  }
-  strcpy(new_ptr, "newdata");
-  printf("Newly allocated memory contains: %s\n", new_ptr);
+    strcpy(ptr, "secret_token=abcd1234");
+    printf("original: %s  (at %p)\n", ptr, (void *)ptr);
 
-  // access the old pointer after new allocation
-  printf("After reallocation, old pointer contains: %s\n", ptr);
+    free(ptr);  /* freed but ptr still holds the address */
 
-  free(new_ptr); // free the new allocation
-}
+    /* allocate the same size -- allocator commonly hands back the same block */
+    char *new_ptr = malloc(32);
+    if (!new_ptr) return 1;
 
-int main() {
-  use_after_free();
-  return 0;
+    strcpy(new_ptr, "replaced_data");
+    printf("new alloc: %s  (at %p)\n", new_ptr, (void *)new_ptr);
+
+    /* stale pointer reads whatever is at the old address now */
+    printf("stale ptr: %s  (at %p -- same address, different data)\n",
+           ptr, (void *)ptr);
+
+    free(new_ptr);
+    return 0;
 }

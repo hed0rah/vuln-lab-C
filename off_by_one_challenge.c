@@ -2,39 +2,47 @@
 #include <stdlib.h>
 #include <string.h>
 
-void win() {
-  printf("congrats.\n");
-  system("/bin/sh");
+/* off-by-one (CTF-style): same <= bug as stack_off_by_one, but here the
+   extra byte lands on a volatile guard variable. if the off-by-one write
+   changes the guard from its initial value, the program calls win().
+
+   depending on stack layout and compiler, the null terminator from a
+   10-byte input can flip the low byte of `target`.
+
+   try: ./off_by_one_challenge AAAAAAAAAA  */
+
+void win(void)
+{
+    printf("target overwritten -- you win.\n");
+    system("/bin/sh");
 }
 
-void vulnerable_function(char *input) {
-  char buffer[10];                  // buffer of size 10
-  volatile int target = 0x41414141; // target value to overwrite
+void vulnerable_function(char *input)
+{
+    char buffer[10];
+    volatile int target = 0x41414141;
 
-  // off-by-one error: The condition allows input of length exactly 10,
-  // which can overwrite the memory just beyond the buffer.
-  if (strlen(input) <= 10) {
-    strcpy(buffer, input); // vulnerable to off-by-one error when input length
-                           // is exactly 10
-    printf("Buffer content: %s\n", buffer);
-  } else {
-    printf("Input too long\n");
-  }
+    if (strlen(input) <= 10) {
+        strcpy(buffer, input); /* off-by-one when strlen == 10 */
+        printf("buffer: %s\n", buffer);
+    } else {
+        printf("input too long\n");
+    }
 
-  // check if the target value has been modified
-  if (target != 0x41414141) {
-    printf("Target overwritten: 0x%x\n", target);
-    win(); // call the win function if target is overwritten
-  } else {
-    printf("Target not overwritten: 0x%x\n", target);
-  }
+    if (target != 0x41414141) {
+        printf("target overwritten: 0x%x\n", target);
+        win();
+    } else {
+        printf("target intact: 0x%x\n", target);
+    }
 }
 
-int main(int argc, char *argv[]) {
-  if (argc != 2) {
-    printf("Usage: %s <input>\n", argv[0]);
-    return 1;
-  }
-  vulnerable_function(argv[1]);
-  return 0;
+int main(int argc, char *argv[])
+{
+    if (argc != 2) {
+        fprintf(stderr, "usage: %s <input>\n", argv[0]);
+        return 1;
+    }
+    vulnerable_function(argv[1]);
+    return 0;
 }
