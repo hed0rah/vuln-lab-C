@@ -2,15 +2,23 @@
 #include <stdlib.h>
 #include <string.h>
 
-void use_after_free() {
-  char *ptr = (char *)malloc(10);
-  strcpy(ptr, "test");
-  printf("Allocated memory contains: %s\n", ptr);
-  free(ptr);                                  // freeing memory
-  printf("Freed memory contains: %s\n", ptr); // use after free
-}
+/* use-after-free: memory is accessed after it has been freed. the contents
+   are no longer valid and may have been overwritten by the allocator's internal
+   bookkeeping or by a subsequent allocation. reading stale data or writing
+   through a freed pointer leads to corruption, info leaks, or code execution. */
 
-int main() {
-  use_after_free();
-  return 0;
+int main(void)
+{
+    char *ptr = malloc(32);
+    if (!ptr) return 1;
+
+    strcpy(ptr, "sensitive");
+    printf("before free: %s\n", ptr);
+
+    free(ptr);
+
+    /* accessing freed memory -- undefined behavior */
+    printf("after free:  %s\n", ptr);
+
+    return 0;
 }

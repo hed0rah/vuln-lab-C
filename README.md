@@ -64,18 +64,33 @@ Compiled with protections deliberately disabled:
 
 ## Hardening flag test matrix
 
-`harden_test.sh` recompiles each example with different protection flag sets and
-shows which ones detect which bugs. Requires gcc with sanitizer support (libasan,
-libubsan, libtsan).
+`harden_test.sh` recompiles 17 of the 19 examples with different protection flag
+sets and shows which ones detect which bugs. Two are excluded: `cmd_injection`
+(logic bug, no memory error to detect) and `toctou` (requires an external process
+to race against). Requires gcc with sanitizer support (libasan, libubsan, libtsan).
 
 ```sh
-./harden_test.sh              # all columns
-./harden_test.sh asan ubsan   # specific columns only
+./harden_test.sh                          # full matrix (all examples, all columns)
+./harden_test.sh asan ubsan               # specific columns only
+./harden_test.sh --only heap_overflow     # single example against all columns
+./harden_test.sh --custom "-fsanitize=address,undefined -O2"   # custom flag set
+./harden_test.sh --compile-check          # which examples fail strict -Werror
+./harden_test.sh --sysinfo                # show kernel ASLR, NX, sanitizer support
+CC=clang ./harden_test.sh msan            # use clang for MSan (uninitialized reads)
 ```
 
-Columns: `stack` (-fstack-protector-all), `fortify` (-D_FORTIFY_SOURCE=2),
+Default columns: `stack` (-fstack-protector-all), `fortify` (-D_FORTIFY_SOURCE=2),
 `asan` (AddressSanitizer), `ubsan` (UBSan), `tsan` (ThreadSanitizer),
-`full` (stack + fortify + PIE + RELRO).
+`full` (stack + fortify + PIE + RELRO). Additional built-in: `msan`
+(MemorySanitizer, clang-only).
 
-Results show `CAUGHT` (protection fired), `miss` (not detected), or `crash`
-(raw signal without a protection message -- still broken, just not cleanly caught).
+`--custom` accepts arbitrary compiler flags and can be repeated to add multiple
+columns. Combine with `--only` to test one example against several flag
+combinations quickly.
+
+Results show `CAUGHT` (protection fired), `miss` (not detected), `crash`
+(raw signal without a protection message), or `n/a` (test not applicable for
+that flag set, e.g., TSan on single-threaded code).
+
+See `HARDENING.md` for a full reference of compiler, linker, and system-level
+hardening options and which bug classes they cover.
