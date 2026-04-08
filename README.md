@@ -61,3 +61,21 @@ Compiled with protections deliberately disabled:
 ./toctou /tmp/testfile &
 # in another shell: ln -sf /etc/passwd /tmp/testfile
 ```
+
+## Hardening flag test matrix
+
+`harden_test.sh` recompiles each example with different protection flag sets and
+shows which ones detect which bugs. Requires gcc with sanitizer support (libasan,
+libubsan, libtsan).
+
+```sh
+./harden_test.sh              # all columns
+./harden_test.sh asan ubsan   # specific columns only
+```
+
+Columns: `stack` (-fstack-protector-all), `fortify` (-D_FORTIFY_SOURCE=2),
+`asan` (AddressSanitizer), `ubsan` (UBSan), `tsan` (ThreadSanitizer),
+`full` (stack + fortify + PIE + RELRO).
+
+Results show `CAUGHT` (protection fired), `miss` (not detected), or `crash`
+(raw signal without a protection message -- still broken, just not cleanly caught).
