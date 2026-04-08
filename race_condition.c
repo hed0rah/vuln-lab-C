@@ -1,33 +1,39 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <unistd.h>
 
-int shared_resource = 0;
+/* race condition: two threads read, modify, and write a shared integer without
+   synchronization. the read-modify-write is not atomic, so interleaving threads
+   lose increments. expected final value is 200; actual value is less.
 
-void *increment(void *arg) {
-  for (int i = 0; i < 100; ++i) {
-    int temp = shared_resource; // read shared resource
-    usleep(rand() % 100);   // sleep for a random time to increase the chance of
-                            // context switch
-    temp = temp + 1;        // increment the value
-    shared_resource = temp; // write back to shared resource
-    usleep(rand() % 100);   // random sleep
-  }
-  return NULL;
+   fix: protect the critical section with a mutex. */
+
+int shared = 0;
+
+void *increment(void *arg)
+{
+    (void)arg;
+    for (int i = 0; i < 100; i++) {
+        int tmp = shared;          /* read */
+        usleep(rand() % 50);       /* artificial delay to force interleaving */
+        shared = tmp + 1;          /* write -- another thread may have written since read */
+    }
+    return NULL;
 }
 
-int main() {
-  pthread_t thread1, thread2;
+int main(void)
+{
+    srand((unsigned)time(NULL));
 
-  srand(time(NULL)); // seed random number generator for usleep
+    pthread_t t1, t2;
+    pthread_create(&t1, NULL, increment, NULL);
+    pthread_create(&t2, NULL, increment, NULL);
+    pthread_join(t1, NULL);
+    pthread_join(t2, NULL);
 
-  pthread_create(&thread1, NULL, increment, NULL);
-  pthread_create(&thread2, NULL, increment, NULL);
-
-  pthread_join(thread1, NULL);
-  pthread_join(thread2, NULL);
-
-  printf("Final value of shared resource: %d\n", shared_resource);
-  return 0;
+    printf("expected: 200\n");
+    printf("actual:   %d\n", shared);
+    return 0;
 }

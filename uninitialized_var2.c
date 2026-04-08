@@ -2,21 +2,27 @@
 #include <stdlib.h>
 #include <string.h>
 
-void uninitialized_variable() {
-  char *sensitive_data = malloc(1024); // allocate memory for sensitive data
-  char uninitialized[1024];            // larger uninitialized variable
+/* uninitialized variable (heap reuse): sensitive data is written into a heap
+   allocation that is then freed. a subsequent stack buffer is never initialized.
+   because the allocator may reuse the same pages, the stack buffer can contain
+   the sensitive heap data verbatim.
 
-  // simulate storing sensitive data
-  strcpy(sensitive_data, "KillENGN");
+   this models a broader class of info leaks where freed memory content is
+   accessible via a different variable before the pages are zeroed or reused. */
+void uninitialized_variable(void)
+{
+    char *sensitive = malloc(64);
+    if (!sensitive) return;
 
-  // free the sensitive data buffer to increase the chance of memory reuse
-  free(sensitive_data);
+    strcpy(sensitive, "api_key=deadbeefcafe");
+    free(sensitive);                /* freed but not zeroed */
 
-  // use uninitialized memory
-  printf("Uninitialized variable contains: %s\n", uninitialized);
+    char leak[64];                  /* uninitialized; may land on same pages */
+    printf("leak contains: %s\n", leak);
 }
 
-int main() {
-  uninitialized_variable();
-  return 0;
+int main(void)
+{
+    uninitialized_variable();
+    return 0;
 }

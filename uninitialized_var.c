@@ -1,17 +1,23 @@
 #include <stdio.h>
 #include <string.h>
 
-void uninitialized_variable() {
-  char sensitive_data[100];
-  char uninitialized[100]; // uninitialized variable
+/* uninitialized variable (stack): sensitive data is stored in one stack buffer,
+   then a second buffer is printed without being initialized. depending on stack
+   layout and compiler, the second buffer may contain bytes from the first,
+   leaking data to the caller. */
+void uninitialized_variable(void)
+{
+    char sensitive[64];
+    char leak[64];          /* never initialized */
 
-  // simulate storing sensitive data
-  strcpy(sensitive_data, "KillENGN");
+    strcpy(sensitive, "password=hunter2");
 
-  printf("Uninitialized variable contains: %s\n", uninitialized);
+    /* leak may contain bytes from sensitive if they overlap on the stack */
+    printf("leak contains: %s\n", leak);
 }
 
-int main() {
-  uninitialized_variable();
-  return 0;
+int main(void)
+{
+    uninitialized_variable();
+    return 0;
 }
